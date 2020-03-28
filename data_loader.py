@@ -9,7 +9,7 @@ def data_loader():
     labels = []
     count  = 0
     
-    file_dir = "SCUT_FBP5500_downsampled/training/"
+    file_dir = "SCUT_FBP5500_downsampled/how"
     all_files = os.listdir(file_dir)
 
     for i in range(100):
