@@ -42,7 +42,7 @@ def loadData(path, batchSize = -1, batchNumber = -1):
 
 # Applies a single convolution operation on x with parameters w and b and settings stride and pad
 # Applies ReLU activation operation
-def conv2D(x, W, b, stride, pad = 'SAME'):
+def conv2D(x, W, b, stride = 1, pad = 'SAME'):
     
     x = tf.nn.conv2d(x, W, stride, pad)
     x = tf.nn.bias_add(x, b)
@@ -60,13 +60,13 @@ def avgpool2D(x, kSize=2, pad = 'SAME'):
 def conv_net(x, weights, biases):  
     
     conv1 = conv2D(x, weights['weight_conv1'], biases['bias_conv1'])
-    maxPool1 = maxpool2D(conv1, k=2)
+    maxPool1 = maxpool2D(conv1)
 
     conv2 = conv2D(maxPool1, weights['weight_conv2'], biases['bias_conv2'])
-    maxPool2 = maxpool2D(conv2, k=2)
+    maxPool2 = maxpool2D(conv2)
 
     conv3 = conv2D(maxPool2, weights['weight_conv3'], biases['bias_conv3'])
-    maxPool3 = maxpool2D(conv3, k=2)
+    maxPool3 = maxpool2D(conv3)
 
     fc1 = tf.reshape(maxPool3, [-1, weights['weight_dense1'].get_shape().as_list()[0]])
     fc1 = tf.add(tf.matmul(fc1, weights['weight_dense1']), biases['bias_dense1'])
