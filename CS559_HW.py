@@ -8,34 +8,33 @@ Created on Sat Mar 28 16:48:40 2020
 from matplotlib.image import imread
 import glob
 import numpy as np
-import tensorflow as tf
-
+import tensorflow as tf2
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 
 # Loads data from given path and given batch size
 def loadData(path, batchSize = -1, batchNumber = -1):
     
-    counter = 0
     images = [] 
     labels = []
+    fileList = glob.glob(path)
     
     if batchSize == -1 and batchNumber == -1:
-        batchSize = len(glob.glob(path))
+        batchSize = len(fileList)
+        batchNumber = 0
             
-    for filename in glob.glob(path): #assuming jpg
-        if counter < batchSize:
-            # Image related operations
-            im = imread(filename)
-            im = np.resize(im,(80, 80, 3))
-            im = np.true_divide(im, 255)
-            images.append(im)
+    for i in range(batchSize * batchNumber, batchSize * batchNumber + batchSize):
+        print(i)
+        # Image related operations
+        im = imread(fileList[i])
+        im = np.resize(im,(80, 80, 3))
+        im = np.true_divide(im, 255)
+        images.append(im)
             
-            # Label related operations
-            label = filename.split("\\")[1].split(".")[0].split("_")[0]
-            labels.append(label)
-        else: 
-            break
-        counter += 1
+        # Label related operations
+        label = fileList[i].split("\\")[1].split(".")[0].split("_")[0]
+        labels.append(label)
         
     return images, labels
 
@@ -93,30 +92,38 @@ numClasses = 8
 x = tf.placeholder("float", [None, inputWidth,inputHeight,numChannels])
 y = tf.placeholder("float", [None, numClasses])
 
-weights = {
-    'weight_conv1': tf.get_variable('W0', shape=(3, 3, 3, 32), initializer = tf.contrib.layers.xavier_initializer()), 
-    'weight_conv2': tf.get_variable('W1', shape=(3, 3, 32, 64), initializer = tf.contrib.layers.xavier_initializer()), 
-    'weight_conv3': tf.get_variable('W2', shape=(3, 3, 64, 128), initializer = tf.contrib.layers.xavier_initializer()), 
-    'weight_dense1': tf.get_variable('W3', shape=(7*7*128, 128), initializer = tf.contrib.layers.xavier_initializer()), 
-    'out': tf.get_variable('W4', shape=(128, 1), initializer = tf.contrib.layers.xavier_initializer()), 
-}
-biases = {
-    'bias_conv1': tf.get_variable('B0', shape=(32), initializer=tf.contrib.layers.xavier_initializer()),
-    'bias_conv2': tf.get_variable('B1', shape=(64), initializer=tf.contrib.layers.xavier_initializer()),
-    'bias_conv3': tf.get_variable('B2', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'bias_dense1': tf.get_variable('B3', shape=(128), initializer=tf.contrib.layers.xavier_initializer()),
-    'out': tf.get_variable('B4', shape=(1), initializer=tf.contrib.layers.xavier_initializer()),
-}
+with tf.variable_scope("other_charge", reuse=tf.AUTO_REUSE) as scope:
+    weights = {
+        'weight_conv1': tf.get_variable('weight_conv1', shape=(3, 3, 3, 32), initializer = tf2.initializers.GlorotUniform()), 
+        'weight_conv2': tf.get_variable('weight_conv2', shape=(3, 3, 32, 64), initializer = tf2.initializers.GlorotUniform()), 
+        'weight_conv3': tf.get_variable('weight_conv3', shape=(3, 3, 64, 128), initializer = tf2.initializers.GlorotUniform()), 
+        'weight_dense1': tf.get_variable('weight_dense1', shape=(7*7*128, 128), initializer = tf2.initializers.GlorotUniform()), 
+        'out': tf.get_variable('out', shape=(128, 1), initializer = tf2.initializers.GlorotUniform()), 
+    }
+    biases = {
+        'bias_conv1': tf.get_variable('B0', shape=(32), initializer=tf2.initializers.GlorotUniform()),
+        'bias_conv2': tf.get_variable('B1', shape=(64), initializer=tf2.initializers.GlorotUniform()),
+        'bias_conv3': tf.get_variable('B2', shape=(128), initializer=tf2.initializers.GlorotUniform()),
+        'bias_dense1': tf.get_variable('B3', shape=(128), initializer=tf2.initializers.GlorotUniform()),
+        'out': tf.get_variable('B4', shape=(1), initializer=tf2.initializers.GlorotUniform()),
+    }
 
-predictions = conv_net(x, weights, biases)
-
-## SHOULD BE CHANGED ACCORDING TO REGRESSION PROBLEM
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=predictions, labels=y))
+prediction = conv_net(x, weights, biases)
 
 ## SHOULD BE CHANGED ACCORDING TO REGRESSION PROBLEM
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y))
 
+tf.metrics.mean_absolute_error(prediction, y)
 
+with tf.variable_scope("other_charge", reuse=tf.AUTO_REUSE) as scope:
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+#CHECK FOR REGRESSION - MAE - MSE - RMSE
+#Here you check whether the index of the maximum value of the predicted image is equal to the actual labelled image. and both will be a column vector.
+correct_prediction = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
+#CHECK FOR REGRESSION
+#calculate accuracy across all the given images and average them out. 
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 # Initializing the variables
 init = tf.global_variables_initializer()
@@ -135,17 +142,17 @@ with tf.Session() as sess:
     for i in range(numEpochs):
         for batch in range(len(glob.glob(trainingPath)) // batchSize):
             
-             # Assuming the data is in same folder with source code
-             train_x, train_y = loadData(trainingPath, batchSize, batch)
+            # Assuming the data is in same folder with source code
+            train_x, train_y = loadData(trainingPath, batchSize, batch)
     
-#            batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
-#            batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
-#            # Run optimization op (backprop).
-#                # Calculate batch loss and accuracy
-#            opt = sess.run(optimizer, feed_dict={x: batch_x,
-#                                                              y: batch_y})
-#            loss, acc = sess.run([cost, accuracy], feed_dict={x: batch_x,
-#                                                              y: batch_y})
+            # batch_x = train_X[batch*batch_size:min((batch+1)*batch_size,len(train_X))]
+            # batch_y = train_y[batch*batch_size:min((batch+1)*batch_size,len(train_y))]    
+            # Run optimization op (backprop).
+                # Calculate batch loss and accuracy
+            opt = sess.run(optimizer, feed_dict={x: train_x,
+                                                              y: train_y})
+            loss, acc = sess.run([cost, accuracy], feed_dict={x: train_x,
+                                                              y: train_y})
    
 
 
