@@ -4,19 +4,17 @@ from data_loader import data_loader
 print(tf.__version__)
 tf.disable_v2_behavior()
 
-images, labels = data_loader()
-images= tf.convert_to_tensor(images, dtype='float32', name='X_train')
-labels= tf.convert_to_tensor(labels, dtype='float32', name='Y_train')
+file_dir_train = "SCUT_FBP5500_downsampled/training/"
+images, labels = data_loader(file_dir_train)
+
+file_dir_test = "SCUT_FBP5500_downsampled/test/"
+images_test, labels_test = data_loader(file_dir_test)
 
 training_iters = 10 
 learning_rate = 0.001 
-batch_size = 128
+batch_size = 2
 n_input = 80
 n_classes = 8
-
-x = tf.placeholder("float", [None, 80,80,3])
-y = tf.placeholder("float", [None, n_classes])
-
 
 def conv2d(x, W, b, strides=1):
     # Conv2D wrapper, with bias and relu activation
@@ -36,17 +34,17 @@ def create_placeholders(n_s, n_xc, n_y):
 def initialize_parameters():
     print("initialize_parameters")
     with tf.compat.v1.variable_scope("init",reuse=tf.compat.v1.AUTO_REUSE):
-        W0  = tf.get_variable('wc0' , shape = [3, 3, 3, 32])
-        W1  = tf.get_variable('wc1' , shape = [3, 3, 32, 64])
-        W2  = tf.get_variable('wc2' , shape = [3, 3, 64, 128])
-        WD1 = tf.get_variable('wd1' , shape = [10*10*128, 128])
-        out = tf.get_variable('out', shape=[128, 1])
+        W0  = tf.compat.v1.get_variable('wc0' , shape = [3, 3, 3, 32])
+        W1  = tf.compat.v1.get_variable('wc1' , shape = [3, 3, 32, 64])
+        W2  = tf.compat.v1.get_variable('wc2' , shape = [3, 3, 64, 128])
+        WD1 = tf.compat.v1.get_variable('wd1' , shape = [10*10*128, 128])
+        out = tf.compat.v1.get_variable('out', shape=[128, 1])
         
-        b0  = tf.get_variable('b0' , shape = (32) )
-        b1  = tf.get_variable('b1' , shape = (64) )
-        b2  = tf.get_variable('b2' , shape = (128))
-        bd1 = tf.get_variable('bd1', shape = (128))
-        b_o = tf.get_variable('bo' , shape = (1))
+        b0  = tf.compat.v1.get_variable('b0' , shape = (32) )
+        b1  = tf.compat.v1.get_variable('b1' , shape = (64) )
+        b2  = tf.compat.v1.get_variable('b2' , shape = (128))
+        bd1 = tf.compat.v1.get_variable('bd1', shape = (128))
+        b_o = tf.compat.v1.get_variable('bo' , shape = (1))
     
 
         parameters = {"W0" : W0, "b0" : b0,
@@ -82,29 +80,34 @@ def forward_propagation(X, parameters):
     fc1 = tf.reshape(conv3, [-1, WD1.get_shape().as_list()[0]])
     fc1 = tf.add(tf.matmul(fc1, WD1), bd1)
     fc1 = tf.nn.relu(fc1)
-    print(fc1.shape)
     
     outL = tf.add(tf.matmul(fc1, o), b_o)
     print(outL.shape)
     
     return outL
 
+X = tf.placeholder("float")
+Y = tf.placeholder("float")
+n_samples = images.shape[0]
+
 parameters = initialize_parameters()
-deneme = forward_propagation(images, parameters)
+pred = forward_propagation(images, parameters)
+cost = tf.reduce_sum(tf.pow(pred-Y, 2))/(2*n_samples)
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
 
-def compute_cost(Z3, Y):    
-    logits = tf.transpose(Z3)
-    labels = tf.transpose(Y)
-    
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
-    return cost
+init = tf.compat.v1.global_variables_initializer()
 
-tf.reset_default_graph()
-
-###Bookmark
-with tf.Session() as sess:
-    X, Y = create_placeholders(12288, 6)
-    parameters = initialize_parameters()
-    Z3 = forward_propagation(images, parameters)
-    cost = compute_cost(Z3, labels)
-    print("cost = " + str(cost))
+with tf.compat.v1.Session() as sess:
+    sess.run(init) 
+    pred = pred.eval() 
+    summary_writer = tf.compat.v1.summary.FileWriter('./Output', sess.graph)
+    for epoch in range(100):
+        for (x, y) in zip(images, labels):
+            sess.run(optimizer, feed_dict={X: x, Y: y})
+            if (epoch+1) % 50 == 0:
+                c = sess.run(cost, feed_dict={X: pred, Y:y})
+                print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(c))
+        print("Optimization Finished!")
+        training_cost = sess.run(cost, feed_dict={X: images, Y: labels})
+        print("Training cost=", training_cost)
+    summary_writer.close()
