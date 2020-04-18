@@ -1,3 +1,7 @@
+#TODO: Get model from config file
+#      Add progress bar
+#      Reset the placeholders and values before each iteration just in case
+
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np

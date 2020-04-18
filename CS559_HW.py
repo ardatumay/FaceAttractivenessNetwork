@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sat Mar 28 16:48:40 2020
-
 @author: arda1
 """
 
@@ -10,8 +8,8 @@ import glob
 import numpy as np
 import tensorflow as tf2
 import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
 
+tf.disable_v2_behavior()
 
 # Loads data from given path and given batch size
 def loadData(path, batchSize = -1, batchNumber = -1):
@@ -153,16 +151,6 @@ with tf.Session() as sess:
                                                               y: train_y})
             loss, acc = sess.run([cost, accuracy], feed_dict={x: train_x,
                                                               y: train_y})
-   
-
-
-
-
-
-
-
-
-
 
 
     

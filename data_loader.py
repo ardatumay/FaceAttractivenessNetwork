@@ -1,19 +1,18 @@
-import tensorflow as tf
 import os
 from PIL import Image
 import numpy as np
-
+import random
 #A method to load data from .jpg to pixels
-def data_loader():
+def data_loader(file_dir, num_data):
     images = []
     labels = []
     count  = 0
     
-    file_dir = "SCUT_FBP5500_downsampled/how"
     all_files = os.listdir(file_dir)
 
-    for i in range(100):
-    #for i in range(len(all_files)):
+    r = list(range(num_data))
+    random.shuffle(r)
+    for i in r:
         print("Getting the image #" + str(i))
         im = Image.open(file_dir+all_files[i],"r")              #getting the image
         label = all_files[i].split(".jpg")[0].split("_")[0]     #getting the label from name
@@ -26,7 +25,9 @@ def data_loader():
 
 
     images = np.reshape(images, (count, 80,80,3))               #pixels reshaped
+    images = images.astype('float32')
     labels = np.reshape(labels, (count, 1))                     #labels reshaped
+    labels = labels.astype('float32')
 
     print("shape for images: " + str(images.shape))             #just to make sure everything is as we wanted
     print("shape for labels: " + str(labels.shape))             
