@@ -1,0 +1,68 @@
+[net]
+img_size= 40
+train_color = greyscale
+batch_normalization = 0
+dropout = 0
+beta1 = 0.9
+beta  = 0.1
+beta2 = 0.999
+epsilon = 1e-08
+learning_rate = 0.001
+batch_size=128
+epoch = 300
+init= 'xavier'
+
+[conv]  
+filter = 32
+kernel = 3
+stride = 1
+
+[conv]  
+filter = 32
+kernel = 3
+stride = 1
+
+[conv]  
+filter = 32
+kernel = 3
+stride = 1
+
+[conv]  
+filter = 32
+kernel = 3
+stride = 2
+
+[conv]
+filter = 64
+kernel = 3
+stride = 2
+
+[conv]
+filter = 64
+kernel = 3
+stride = 1
+
+[conv]
+filter = 64
+kernel = 3
+stride = 1
+
+[conv]
+filter = 64
+kernel = 3
+stride = 1
+
+[conv]
+filter = 128
+kernel = 3
+stride = 2
+
+[fully]
+filter = 128
+kernel = 3
+stride = 1
+
+[regression]
+filter = 128
+kernel = 3
+stride = 1
