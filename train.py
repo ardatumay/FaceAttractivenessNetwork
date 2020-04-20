@@ -79,8 +79,8 @@ def data_loader(file_dir, num_data, size, channel_type):
 
 
 print("Getting the training data")
-file_dir_train = "/content/gdrive/My Drive/CS559/SCUT_FBP5500_downsampled/training/"
-# file_dir_train = "./training/"
+# file_dir_train = "/content/gdrive/My Drive/CS559/SCUT_FBP5500_downsampled/training/"
+file_dir_train = "./training/"
 images, labels = data_loader(file_dir_train,3550, int(hyperparameters['img_size']) , hyperparameters['train_color']) #3550
 print(hyperparameters['train_color'])
 if hyperparameters['train_color']=='greyscale':
@@ -89,8 +89,8 @@ elif hyperparameters['train_color']=='rgb':
   num_channels = 3
 
 print("Getting the testing data")
-file_dir_val = "/content/gdrive/My Drive/CS559/SCUT_FBP5500_downsampled/test/"
-# file_dir_val = "./test/"
+# file_dir_val = "/content/gdrive/My Drive/CS559/SCUT_FBP5500_downsampled/test/"
+file_dir_val = "./test/"
 images_val, labels_val = data_loader(file_dir_val, 890, int(hyperparameters['img_size']), hyperparameters['train_color']) #892
 
 #Creating the conv layer for the network
@@ -126,10 +126,11 @@ def initialize_parameters(blocks):
   num_filter = []
   init= hyperparameters['init']
   initializer =None
-  if init =='Xavier':
-    print(init)
+  if init =='xavier':
+    print(init + " initialized")
     initializer= tf.contrib.layers.xavier_initializer()
-  elif init == 'Gauss':
+  elif init == 'gauss':
+    print(init + " initialized")
     initializer = tf.compat.v1.random_uniform_initializer()
 
   with tf.compat.v1.variable_scope("init",reuse=tf.compat.v1.AUTO_REUSE):
@@ -165,6 +166,7 @@ def forward_propagation(X, p_w, p_b):
     for i, module in enumerate(blocks):
       module_type = (module['type'])
       if module_type == 'conv':
+          
         stride = int(blocks[i]['stride'])
         layer_name = str(i)
         if bool(layers) == False:
@@ -184,6 +186,7 @@ def forward_propagation(X, p_w, p_b):
         if hyperparameters['batch_normalization'] == 1:
            mean, var = tf.nn.moments(layers[layer_name], [0], name='moments')
            layers[layer_name] = tf.nn.batch_normalization(layers[layer_name], mean, var, variance_epsilon = 1e-3, name=None)
+       
         layers[layer_name] = tf.nn.relu(layers[str(i)])
         
         if hyperparameters['dropout'] == 1:
@@ -198,34 +201,39 @@ def forward_propagation(X, p_w, p_b):
   
     return "Error: There is no regression layer. Add regression layer to the cfg file"
 
+def getLoss(loss, Y, pred):
+    if loss == "mse":
+        return tf.compat.v1.losses.mean_squared_error(labels=Y, predictions=pred);
+    elif loss == "mae":
+        return tf.reduce_mean(tf.abs(tf.subtract(Y, pred)))
+    elif loss == "logcosh":
+        return tf.math.reduce_sum(tf.math.log(tf.cosh(pred - Y)))
+
 X = tf.placeholder("float")
 Y = tf.placeholder("float")
 
 n_samples = images.shape[0]
-#beta1 = 0.9
-#beta  = 0.1
-#beta2 = 0.999
-#epsilon = 1e-08
-#learning_rate = 0.0005
 
 # blocks=parsecfg("/content/gdrive/My Drive/CS559/HWNet.cfg")
 
 parameters_w, parameters_b = initialize_parameters(blocks)
 pred = forward_propagation(X, parameters_w, parameters_b)
-loss =tf.compat.v1.losses.mean_squared_error(labels=Y, predictions=pred)
+loss = getLoss(hyperparameters['loss'], Y, pred)
 regularizers = tf.nn.l2_loss(parameters_w[1]) + tf.nn.l2_loss(parameters_w[2]) + tf.nn.l2_loss(parameters_w[3]) + tf.nn.l2_loss(parameters_w[4]) + \
                     tf.nn.l2_loss(parameters_w[5]) + tf.nn.l2_loss(parameters_w[6]) + \
                     tf.nn.l2_loss(parameters_w[7]) + tf.nn.l2_loss(parameters_w[8])
-loss = tf.reduce_mean(loss + float(hyperparameters['beta']) * regularizers)
+loss = loss + float(hyperparameters['beta']) * regularizers
 with tf.compat.v1.variable_scope("opti",reuse=tf.compat.v1.AUTO_REUSE):
-    optimizer = tf.compat.v1.train.AdamOptimizer(float(hyperparameters['learning_rate'])).minimize(loss)
-#pred = np.around(pred)
-#print(pred)
-error = tf.compat.v1.metrics.mean_absolute_error(Y, predictions=pred)
+    optimizer = tf.compat.v1.train.AdamOptimizer(float(hyperparameters['learning_rate']), float(hyperparameters['beta1']), float(hyperparameters['beta2']), float(hyperparameters['epsilon'])).minimize(loss)
+
+# Round predictions for MAE calculation
+predEr = tf.math.round(pred)
+error = tf.compat.v1.metrics.mean_absolute_error(Y, predictions=predEr)
 
 batch_size=int(hyperparameters['batch_size'])
 epoch= int(hyperparameters['epoch'])
 init = tf.compat.v1.global_variables_initializer()
+# with tf.device("/device:GPU:0"):
 with tf.compat.v1.Session() as sess:
     print("Session started")
     sess.run(init)
@@ -235,7 +243,7 @@ with tf.compat.v1.Session() as sess:
     
     loss_epoch=[]
     
-    for epoch in range(300):
+    for ithepoch in range(int(epoch)):
         #tic = time.perf_counter()
         for batch in range(len(images)//batch_size):
             batch_x = images[batch*batch_size:min((batch+1)*batch_size,len(images))]
@@ -250,10 +258,10 @@ with tf.compat.v1.Session() as sess:
         #make predictions integer
         loss_epoch=np.append(loss_epoch,loss_train)
 
-        print("Epoch:", '%04d' % (epoch+1), "loss=",loss_train)
+        print("Epoch:", '%04d' % (ithepoch+1), "loss=",loss_train)
         #
         
-        loss_val = sess.run(tf.reduce_mean(tf.compat.v1.losses.mean_squared_error(labels=Y, predictions=pred)), feed_dict={X:images_val, Y:labels_val})
+        loss_val = sess.run(loss, feed_dict={X:images_val, Y:labels_val})
         err_val = sess.run(error,feed_dict={X:images_val, Y:labels_val})
         print("            loss_val=",loss_val, "error_val=",err_val[0])
         print()
